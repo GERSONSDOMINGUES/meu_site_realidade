@@ -8,8 +8,8 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #111111;
-            font-family: sans-serif;
+            background-color: #1a1a1a;
+            font-family: system-ui, -apple-system, sans-serif;
         }
         #canvas-container {
             width: 100vw;
@@ -31,32 +31,33 @@
             pointer-events: none;
         }
         button {
-            padding: 12px 24px;
+            padding: 14px 28px;
             font-size: 16px;
             font-weight: bold;
-            background-color: #ff4757;
+            background-color: #007aff;
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 12px;
             cursor: pointer;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 12px rgba(0,122,255,0.3);
             pointer-events: auto;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s, transform 0.1s;
         }
         button:active {
-            background-color: #ff2e44;
+            background-color: #0056b3;
+            transform: scale(0.98);
         }
         #status {
-            margin-top: 10px;
+            margin-top: 12px;
             color: #ffffff;
-            font-size: 14px;
-            background: rgba(0, 0, 0, 0.6);
-            padding: 8px 12px;
+            font-size: 13px;
+            background: rgba(0, 0, 0, 0.75);
+            padding: 6px 16px;
             border-radius: 20px;
             display: inline-block;
+            backdrop-filter: blur(4px);
         }
     </style>
-    <!-- Importando Three.js e o carregador de GLTF (GLTFLoader) -->
     <script src="https://cloudflare.com"></script>
     <script src="https://jsdelivr.net"></script>
 </head>
@@ -64,7 +65,7 @@
 
     <div id="ui-container">
         <button id="btn-sensor">Ativar Sensor de Movimento</button>
-        <div id="status">Aguardando ativação...</div>
+        <div id="status">Buscando modelo 3D...</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -73,107 +74,106 @@
         let scene, camera, renderer, meuModelo;
         let targetRotationX = 0;
         let targetRotationY = 0;
-        
-        // Filtro de suavização (quanto menor, mais suave e lento o movimento)
         const lerpFactor = 0.08; 
 
         const btnSensor = document.getElementById('btn-sensor');
         const statusDiv = document.getElementById('status');
 
-        // 1. Inicializar Cenário 3D
         function init3D() {
             const container = document.getElementById('canvas-container');
-            
             scene = new THREE.Scene();
             
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
-            camera.position.z = 5;
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
+            camera.position.set(0, 0, 3); // Câmera aproximada para objetos pequenos
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.outputEncoding = THREE.sRGBEncoding; // Melhora as cores do modelo exportado
+            renderer.outputEncoding = THREE.sRGBEncoding;
             container.appendChild(renderer.domElement);
 
-            // Luzes (Essenciais para modelos importados não ficarem pretos)
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+            // Iluminação Avançada (Estúdio em 3 Pontos para evitar silhuetas pretas)
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
             scene.add(ambientLight);
 
-            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
-            directionalLight.position.set(5, 5, 5);
-            scene.add(directionalLight);
+            const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
+            dirLight1.position.set(5, 10, 7);
+            scene.add(dirLight1);
 
-            // Carregar o SEU modelo personalizado (.glb)
+            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
+            dirLight2.position.set(-5, -5, -5);
+            scene.add(dirLight2);
+
+            // Carregamento do arquivo .glb
             const loader = new THREE.GLTFLoader();
-            
-            // Procura pelo arquivo 'modelo.glb' na mesma pasta do index.html
             loader.load('modelo.glb', 
                 function (gltf) {
                     meuModelo = gltf.scene;
                     
-                    // Centraliza o modelo automaticamente
+                    // Força a atualização das matrizes do modelo do usuário
+                    meuModelo.updateMatrixWorld();
+
+                    // Centralização matemática rigorosa baseada na caixa delimitadora (Bounding Box)
                     const box = new THREE.Box3().setFromObject(meuModelo);
                     const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    
                     meuModelo.position.sub(center);
 
-                    // Grupo para facilitar rotações limpas
                     const group = new THREE.Group();
                     group.add(meuModelo);
                     scene.add(group);
                     meuModelo = group;
 
-                    // AJUSTE DE ESCALA SE NECESSÁRIO:
-                    // Se o modelo sumir ou ficar gigante, altere o valor abaixo (ex: 0.5 ou 2.0)
-                    meuModelo.scale.set(1, 1, 1); 
+                    // Ajuste Automático de Escala Dinâmica
+                    // Se o modelo de 4KB for microscopicamente pequeno, o script o expande para caber na tela
+                    const maxDim = Math.max(size.x, size.y, size.z);
+                    if (maxDim > 0 && maxDim < 0.1) {
+                        const scaleFactor = 1.0 / maxDim;
+                        meuModelo.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                    }
 
-                    statusDiv.innerText = "Modelo 3D carregado! Ative o sensor.";
+                    statusDiv.innerText = "Modelo pronto! Ative o sensor para girar.";
                 },
                 function (xhr) {
-                    statusDiv.innerText = `Carregando modelo: ${Math.round((xhr.loaded / xhr.total * 100))}%`;
+                    if (xhr.total > 0) {
+                        statusDiv.innerText = `Carregando: ${Math.round((xhr.loaded / xhr.total * 100))}%`;
+                    } else {
+                        statusDiv.innerText = "Carregando modelo...";
+                    }
                 },
                 function (error) {
                     console.error(error);
-                    statusDiv.innerText = "Erro ao carregar modelo. Verifique se o arquivo 'modelo.glb' está no GitHub.";
+                    statusDiv.innerText = "Erro: certifique-se de que o arquivo chama-se 'modelo.glb' no GitHub.";
                 }
             );
 
             animate();
         }
 
-        // 2. Loop de Renderização com Suavização (Lerp)
         function animate() {
             requestAnimationFrame(animate);
-
             if (meuModelo) {
-                // Aplica a rotação de forma suavizada
                 meuModelo.rotation.x += (targetRotationX - meuModelo.rotation.x) * lerpFactor;
                 meuModelo.rotation.y += (targetRotationY - meuModelo.rotation.y) * lerpFactor;
             }
-
             renderer.render(scene, camera);
         }
 
-        // 3. Processar Movimentos do Celular
         function handleOrientation(event) {
-            // gamma: inclinação esquerda/direita (-90 a 90)
-            // beta: inclinação frente/trás (-180 a 180)
             let x = event.beta; 
             let y = event.gamma;
 
-            // Prevenir bugs se o celular virar de cabeça para baixo
             if (x > 90) x = 90;
             if (x < -90) x = -90;
 
-            // Converte os graus em radianos de forma controlada para a rotação 3D
+            // Sensibilidade ajustada para visualização confortável ao inclinar
             targetRotationX = (x * Math.PI / 180);
             targetRotationY = (y * Math.PI / 180);
         }
 
-        // 4. Gerenciar Permissões dos Sensores
         function ativarSensor() {
-            // Caso seja iOS (Safari)
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                statusDiv.innerText = "Solicitando permissão no iOS...";
                 DeviceOrientationEvent.requestPermission()
                     .then(permissionState => {
                         if (permissionState === 'granted') {
@@ -181,23 +181,20 @@
                             btnSensor.style.display = 'none';
                             statusDiv.innerText = "Sensor ativo! Mova o celular.";
                         } else {
-                            statusDiv.innerText = "Permissão negada para o sensor.";
+                            statusDiv.innerText = "Permissão ao sensor negada.";
                         }
                     })
                     .catch(err => {
                         console.error(err);
-                        statusDiv.innerText = "Erro ao pedir permissão. Use HTTPS.";
+                        statusDiv.innerText = "Erro de permissão. Teste usando HTTPS.";
                     });
-            } 
-            // Caso seja Android (Chrome/Firefox) ou navegadores sem bloqueio estrito
-            else {
+            } else {
                 window.addEventListener('deviceorientation', handleOrientation);
                 btnSensor.style.display = 'none';
                 statusDiv.innerText = "Sensor ativo! Mova o celular.";
             }
         }
 
-        // Inicialização
         window.addEventListener('resize', () => {
             if(camera && renderer) {
                 camera.aspect = window.innerWidth / window.innerHeight;
@@ -207,8 +204,6 @@
         });
 
         btnSensor.addEventListener('click', ativarSensor);
-        
-        // Inicia o cenário assim que a página abre
         init3D();
     </script>
 </body>
