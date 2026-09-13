@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Meu Objeto 3D</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: sans-serif; }
+        #btn-sensor {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            padding: 20px 40px; font-size: 20px; border: none; background: #00ff88;
+            color: black; font-weight: bold; border-radius: 30px; cursor: pointer; z-index: 10;
+        }
+        #carregando {
+            position: absolute; top: 20px; left: 20px; color: white; font-size: 16px; display: none;
+        }
+    </style>
+    <!-- Carregando o Three.js e o Importador de Modelos -->
+    <script src="https://cloudflare.com"></script>
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body>
+
+    <div id="carregando">Carregando modelo 3D...</div>
+    <button id="btn-sensor">Ativar Giroscópio</button>
+
+    <script>
+        let objeto3D;
+
+        // 1. Configuração da Cena
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        // Iluminação essencial para o modelo aparecer
+        const luzAmbiente = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(luzAmbiente);
+        const luzDirecional = new THREE.DirectionalLight(0xffffff, 0.8);
+        luzDirecional.position.set(5, 10, 7);
+        scene.add(luzDirecional);
+
+        camera.position.z = 5;
+
+        // 2. Carregando o seu Modelo Real (.gltf ou .glb)
+        const txtCarregando = document.getElementById('carregando');
+        txtCarregando.style.display = 'block';
+
+        const loader = new THREE.GLTFLoader();
+        // Substitua 'modelo.glb' pelo nome exato do seu arquivo se for diferente
+        loader.load('modelo.glb', function (gltf) {
+            objeto3D = gltf.scene;
+            
+            // Centraliza o objeto automaticamente na tela
+            const box = new THREE.Box3().setFromObject(objeto3D);
+            const center = box.getCenter(new THREE.Vector3());
+            objeto3D.position.x += (objeto3D.position.x - center.x);
+            objeto3D.position.y += (objeto3D.position.y - center.y);
+            objeto3D.position.z += (objeto3D.position.z - center.z);
+            
+            scene.add(objeto3D);
+            txtCarregando.style.display = 'none';
+        }, undefined, function (error) {
+            console.error(error);
+            txtCarregando.innerText = "Erro ao carregar o modelo.";
+        });
+
+        // 3. Loop de Renderização
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        // 4. Giroscópio
+        function ligarGiroscopio() {
+            window.addEventListener('deviceorientation', (event) => {
+                if (objeto3D && event.beta !== null && event.gamma !== null) {
+                    // Mapeia os movimentos do celular para a rotação do seu modelo
+                    objeto3D.rotation.x = event.beta * (Math.PI / 180);
+                    objeto3D.rotation.y = event.gamma * (Math.PI / 180);
+                }
+            });
+        }
+
+        // 5. Botão de Permissão
+        const botao = document.getElementById('btn-sensor');
+        botao.addEventListener('click', () => {
+            ligarGiroscopio();
+            botao.style.display = 'none';
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
