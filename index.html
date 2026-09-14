@@ -8,7 +8,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #1a1a1a;
+            background-color: #16161a;
             font-family: system-ui, -apple-system, sans-serif;
         }
         #canvas-container {
@@ -41,39 +41,34 @@
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(0,122,255,0.3);
             pointer-events: auto;
-            transition: background-color 0.2s, transform 0.1s;
-        }
-        button:active {
-            background-color: #0056b3;
-            transform: scale(0.98);
         }
         #status {
             margin-top: 12px;
             color: #ffffff;
             font-size: 13px;
-            background: rgba(0, 0, 0, 0.75);
-            padding: 6px 16px;
+            background: rgba(0, 0, 0, 0.85);
+            padding: 8px 16px;
             border-radius: 20px;
             display: inline-block;
             backdrop-filter: blur(4px);
         }
     </style>
-    <script src="https://cloudflare.com"></script>
-    <script src="https://jsdelivr.net"></script>
+    <!-- Bibliotecas carregadas via unpkg (servidores de alta velocidade) -->
+    <script src="https://unpkg.com"></script>
+    <script src="https://unpkg.com"></script>
 </head>
 <body>
 
     <div id="ui-container">
         <button id="btn-sensor">Ativar Sensor de Movimento</button>
-        <div id="status">Buscando modelo 3D...</div>
+        <div id="status">Iniciando motor 3D...</div>
     </div>
 
     <div id="canvas-container"></div>
 
     <script>
         let scene, camera, renderer, meuModelo;
-        let targetRotationX = 0;
-        let targetRotationY = 0;
+        let targetRotationX = 0, targetRotationY = 0;
         const lerpFactor = 0.08; 
 
         const btnSensor = document.getElementById('btn-sensor');
@@ -84,7 +79,7 @@
             scene = new THREE.Scene();
             
             camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
-            camera.position.set(0, 0, 3); // Câmera aproximada para objetos pequenos
+            camera.position.set(0, 0, 3);
 
             renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
@@ -92,28 +87,23 @@
             renderer.outputEncoding = THREE.sRGBEncoding;
             container.appendChild(renderer.domElement);
 
-            // Iluminação Avançada (Estúdio em 3 Pontos para evitar silhuetas pretas)
-            const ambientLight = new THREE.AmbientLight(0xffffff, 0.8);
-            scene.add(ambientLight);
+            // Iluminação otimizada de estúdio
+            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
 
-            const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.0);
-            dirLight1.position.set(5, 10, 7);
-            scene.add(dirLight1);
-
-            const dirLight2 = new THREE.DirectionalLight(0xffffff, 0.3);
-            dirLight2.position.set(-5, -5, -5);
-            scene.add(dirLight2);
-
-            // Carregamento do arquivo .glb
             const loader = new THREE.GLTFLoader();
-            loader.load('modelo.glb', 
+            
+            // ATENÇÃO: Adicionamos um número aleatório ao final do nome do arquivo (?v=...)
+            // Isso força o GitHub e o seu celular a ignorarem o cache velho e carregarem instantaneamente.
+            const antiCacheUrl = './modelo.glb?v=' + Math.random();
+
+            loader.load(antiCacheUrl, 
                 function (gltf) {
                     meuModelo = gltf.scene;
-                    
-                    // Força a atualização das matrizes do modelo do usuário
                     meuModelo.updateMatrixWorld();
 
-                    // Centralização matemática rigorosa baseada na caixa delimitadora (Bounding Box)
                     const box = new THREE.Box3().setFromObject(meuModelo);
                     const center = box.getCenter(new THREE.Vector3());
                     const size = box.getSize(new THREE.Vector3());
@@ -125,26 +115,21 @@
                     scene.add(group);
                     meuModelo = group;
 
-                    // Ajuste Automático de Escala Dinâmica
-                    // Se o modelo de 4KB for microscopicamente pequeno, o script o expande para caber na tela
+                    // Ajuste de escala para objetos muito pequenos
                     const maxDim = Math.max(size.x, size.y, size.z);
-                    if (maxDim > 0 && maxDim < 0.1) {
-                        const scaleFactor = 1.0 / maxDim;
+                    if (maxDim > 0 && maxDim < 0.5) {
+                        const scaleFactor = 1.2 / maxDim;
                         meuModelo.scale.set(scaleFactor, scaleFactor, scaleFactor);
                     }
 
-                    statusDiv.innerText = "Modelo pronto! Ative o sensor para girar.";
+                    statusDiv.innerText = "Modelo carregado! Clique para ativar o sensor.";
                 },
                 function (xhr) {
-                    if (xhr.total > 0) {
-                        statusDiv.innerText = `Carregando: ${Math.round((xhr.loaded / xhr.total * 100))}%`;
-                    } else {
-                        statusDiv.innerText = "Carregando modelo...";
-                    }
+                    statusDiv.innerText = "Carregando arquivo 3D...";
                 },
                 function (error) {
                     console.error(error);
-                    statusDiv.innerText = "Erro: certifique-se de que o arquivo chama-se 'modelo.glb' no GitHub.";
+                    statusDiv.innerHTML = "❌ Erro ao ler arquivo.<br>Verifique se o seu modelo está mesmo na raiz do GitHub.";
                 }
             );
 
@@ -163,11 +148,8 @@
         function handleOrientation(event) {
             let x = event.beta; 
             let y = event.gamma;
-
             if (x > 90) x = 90;
             if (x < -90) x = -90;
-
-            // Sensibilidade ajustada para visualização confortável ao inclinar
             targetRotationX = (x * Math.PI / 180);
             targetRotationY = (y * Math.PI / 180);
         }
@@ -181,13 +163,9 @@
                             btnSensor.style.display = 'none';
                             statusDiv.innerText = "Sensor ativo! Mova o celular.";
                         } else {
-                            statusDiv.innerText = "Permissão ao sensor negada.";
+                            statusDiv.innerText = "Permissão negada.";
                         }
-                    })
-                    .catch(err => {
-                        console.error(err);
-                        statusDiv.innerText = "Erro de permissão. Teste usando HTTPS.";
-                    });
+                    }).catch(() => { statusDiv.innerText = "Erro no sensor."; });
             } else {
                 window.addEventListener('deviceorientation', handleOrientation);
                 btnSensor.style.display = 'none';
