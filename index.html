@@ -8,7 +8,7 @@
         body {
             margin: 0;
             overflow: hidden;
-            background-color: #16161a;
+            background-color: #111111;
             font-family: system-ui, -apple-system, sans-serif;
         }
         #canvas-container {
@@ -53,15 +53,16 @@
             backdrop-filter: blur(4px);
         }
     </style>
-    <!-- Bibliotecas carregadas via unpkg (servidores de alta velocidade) -->
-    <script src="https://unpkg.com"></script>
-    <script src="https://unpkg.com"></script>
+    
+    <!-- Bibliotecas espelhadas na Cloudflare (CDN de altíssima velocidade e estabilidade) -->
+    <script src="https://cloudflare.com" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cloudflare.com" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 </head>
 <body>
 
     <div id="ui-container">
         <button id="btn-sensor">Ativar Sensor de Movimento</button>
-        <div id="status">Iniciando motor 3D...</div>
+        <div id="status">Conectando ao motor 3D...</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -75,65 +76,71 @@
         const statusDiv = document.getElementById('status');
 
         function init3D() {
-            const container = document.getElementById('canvas-container');
-            scene = new THREE.Scene();
-            
-            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
-            camera.position.set(0, 0, 3);
+            try {
+                statusDiv.innerText = "Carregando cenário...";
+                const container = document.getElementById('canvas-container');
+                scene = new THREE.Scene();
+                
+                camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
+                camera.position.set(0, 0, 3);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-            renderer.setSize(window.innerWidth, window.innerHeight);
-            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-            renderer.outputEncoding = THREE.sRGBEncoding;
-            container.appendChild(renderer.domElement);
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer.setSize(window.innerWidth, window.innerHeight);
+                renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+                renderer.outputEncoding = THREE.sRGBEncoding;
+                container.appendChild(renderer.domElement);
 
-            // Iluminação otimizada de estúdio
-            scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-            const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-            dirLight.position.set(5, 10, 7);
-            scene.add(dirLight);
+                // Luzes de estúdio
+                scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+                const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+                dirLight.position.set(5, 10, 7);
+                scene.add(dirLight);
 
-            const loader = new THREE.GLTFLoader();
-            
-            // ATENÇÃO: Adicionamos um número aleatório ao final do nome do arquivo (?v=...)
-            // Isso força o GitHub e o seu celular a ignorarem o cache velho e carregarem instantaneamente.
-            const antiCacheUrl = './modelo.glb?v=' + Math.random();
+                statusDiv.innerText = "Buscando arquivo modelo.glb...";
 
-            loader.load(antiCacheUrl, 
-                function (gltf) {
-                    meuModelo = gltf.scene;
-                    meuModelo.updateMatrixWorld();
+                // Inicializa o carregador com proteção contra falhas de rede
+                const loader = new THREE.GLTFLoader();
+                const antiCacheUrl = './modelo.glb?v=' + Date.now();
 
-                    const box = new THREE.Box3().setFromObject(meuModelo);
-                    const center = box.getCenter(new THREE.Vector3());
-                    const size = box.getSize(new THREE.Vector3());
-                    
-                    meuModelo.position.sub(center);
+                loader.load(antiCacheUrl, 
+                    function (gltf) {
+                        meuModelo = gltf.scene;
+                        meuModelo.updateMatrixWorld();
 
-                    const group = new THREE.Group();
-                    group.add(meuModelo);
-                    scene.add(group);
-                    meuModelo = group;
+                        const box = new THREE.Box3().setFromObject(meuModelo);
+                        const center = box.getCenter(new THREE.Vector3());
+                        const size = box.getSize(new THREE.Vector3());
+                        
+                        meuModelo.position.sub(center);
 
-                    // Ajuste de escala para objetos muito pequenos
-                    const maxDim = Math.max(size.x, size.y, size.z);
-                    if (maxDim > 0 && maxDim < 0.5) {
-                        const scaleFactor = 1.2 / maxDim;
-                        meuModelo.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                        const group = new THREE.Group();
+                        group.add(meuModelo);
+                        scene.add(group);
+                        meuModelo = group;
+
+                        // Ajuste inteligente para o tamanho de 4kb
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        if (maxDim > 0 && maxDim < 0.5) {
+                            const scaleFactor = 1.2 / maxDim;
+                            meuModelo.scale.set(scaleFactor, scaleFactor, scaleFactor);
+                        }
+
+                        statusDiv.innerText = "Modelo pronto! Ative o sensor.";
+                    },
+                    function (xhr) {
+                        statusDiv.innerText = "Processando arquivo 3D...";
+                    },
+                    function (error) {
+                        console.error(error);
+                        statusDiv.innerHTML = "❌ O arquivo modelo.glb não respondeu.<br>Confirme se ele está na raiz do repositório.";
                     }
+                );
 
-                    statusDiv.innerText = "Modelo carregado! Clique para ativar o sensor.";
-                },
-                function (xhr) {
-                    statusDiv.innerText = "Carregando arquivo 3D...";
-                },
-                function (error) {
-                    console.error(error);
-                    statusDiv.innerHTML = "❌ Erro ao ler arquivo.<br>Verifique se o seu modelo está mesmo na raiz do GitHub.";
-                }
-            );
-
-            animate();
+                animate();
+            } catch (err) {
+                console.error(err);
+                statusDiv.innerText = "Erro ao iniciar bibliotecas de gráficos.";
+            }
         }
 
         function animate() {
@@ -163,9 +170,9 @@
                             btnSensor.style.display = 'none';
                             statusDiv.innerText = "Sensor ativo! Mova o celular.";
                         } else {
-                            statusDiv.innerText = "Permissão negada.";
+                            statusDiv.innerText = "Permissão recusada.";
                         }
-                    }).catch(() => { statusDiv.innerText = "Erro no sensor."; });
+                    }).catch(() => { statusDiv.innerText = "Erro nas permissões."; });
             } else {
                 window.addEventListener('deviceorientation', handleOrientation);
                 btnSensor.style.display = 'none';
@@ -182,7 +189,9 @@
         });
 
         btnSensor.addEventListener('click', ativarSensor);
-        init3D();
+        
+        // Garante que o motor só inicia após toda a estrutura da página estar carregada
+        window.addEventListener('DOMContentLoaded', init3D);
     </script>
 </body>
 </html>
