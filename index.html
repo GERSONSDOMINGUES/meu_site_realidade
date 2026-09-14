@@ -2,14 +2,18 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Meu Modelo 3D Interativo</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Visualizador 3D Interativo</title>
     <style>
-        body {
+        /* Força a cor escura mesmo se o JavaScript quebrar */
+        html, body {
             margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
             overflow: hidden;
-            background-color: #111111;
-            font-family: system-ui, -apple-system, sans-serif;
+            background-color: #111111 !important;
+            font-family: -apple-system, system-ui, sans-serif;
         }
         #canvas-container {
             width: 100vw;
@@ -21,49 +25,50 @@
         }
         #ui-container {
             position: absolute;
-            top: 20px;
+            top: 30px;
             left: 50%;
             transform: translateX(-50%);
-            z-index: 10;
+            z-index: 100;
             text-align: center;
-            width: 90%;
-            max-width: 400px;
+            width: 85%;
+            max-width: 320px;
             pointer-events: none;
         }
         button {
-            padding: 14px 28px;
-            font-size: 16px;
-            font-weight: bold;
+            padding: 14px 24px;
+            font-size: 15px;
+            font-weight: 700;
             background-color: #007aff;
-            color: white;
+            color: #ffffff;
             border: none;
-            border-radius: 12px;
+            border-radius: 25px;
             cursor: pointer;
-            box-shadow: 0 4px 12px rgba(0,122,255,0.3);
+            box-shadow: 0 8px 16px rgba(0,122,255,0.4);
             pointer-events: auto;
+            width: 100%;
         }
         #status {
-            margin-top: 12px;
+            margin-top: 15px;
             color: #ffffff;
             font-size: 13px;
-            background: rgba(0, 0, 0, 0.85);
-            padding: 8px 16px;
-            border-radius: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 16px;
+            border-radius: 30px;
             display: inline-block;
-            backdrop-filter: blur(4px);
+            pointer-events: none;
+            border: 1px solid rgba(255,255,255,0.1);
         }
     </style>
     
-    <!-- Importando Three.js de uma CDN alternativa super estável (jsDelivr) -->
-    <script src="https://jsdelivr.net"></script>
-    <!-- Importando o GLTFLoader correspondente e compatível da mesma CDN -->
-    <script src="https://jsdelivr.net"></script>
+    <!-- Scripts robustos com espelhamento global via cdnjs sem restrição de origem -->
+    <script src="https://cloudflare.com" crossorigin="anonymous"></script>
+    <script src="https://jsdelivr.net" crossorigin="anonymous"></script>
 </head>
 <body>
 
     <div id="ui-container">
-        <button id="btn-sensor">Ativar Sensor de Movimento</button>
-        <div id="status">Carregando componentes gráficos...</div>
+        <button id="btn-sensor" onclick="ativarSensor()">Ativar Sensor de Movimento</button>
+        <div id="status">Aguardando carregamento da página...</div>
     </div>
 
     <div id="canvas-container"></div>
@@ -71,136 +76,146 @@
     <script>
         let scene, camera, renderer, meuModelo;
         let targetRotationX = 0, targetRotationY = 0;
-        const lerpFactor = 0.08; 
+        const lerpFactor = 0.05; // Movimento levemente mais suave para evitar tremores
 
         const btnSensor = document.getElementById('btn-sensor');
         const statusDiv = document.getElementById('status');
 
         function init3D() {
             try {
-                // Validação imediata se os objetos da biblioteca estão presentes no navegador
-                if (typeof THREE === 'undefined') {
-                    statusDiv.innerText = "❌ Erro: Biblioteca Three.js falhou ao baixar.";
-                    return;
-                }
-                if (typeof THREE.GLTFLoader === 'undefined') {
-                    statusDiv.innerText = "❌ Erro: Extensão GLTFLoader não carregou.";
+                statusDiv.innerText = "Criando ambiente tridimensional...";
+                
+                // Validação de segurança básica das importações do cabeçalho
+                if (typeof THREE === 'undefined' || typeof THREE.GLTFLoader === 'undefined') {
+                    statusDiv.innerHTML = "❌ Bibliotecas bloqueadas pelo navegador.<br>Tente abrir usando outra rede ou Wi-Fi.";
                     return;
                 }
 
-                statusDiv.innerText = "Construindo cenário 3D...";
                 const container = document.getElementById('canvas-container');
                 scene = new THREE.Scene();
                 
-                camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.01, 100);
-                camera.position.set(0, 0, 3);
+                camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.01, 50);
+                camera.position.set(0, 0, 2.5);
 
-                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: "high-performance" });
                 renderer.setSize(window.innerWidth, window.innerHeight);
                 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
                 renderer.outputEncoding = THREE.sRGBEncoding;
                 container.appendChild(renderer.domElement);
 
-                // Luz ambiente e direcional forte para dar volume
+                // Luz ambiente distribuída uniformemente
                 scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-                const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-                dirLight.position.set(5, 10, 7);
-                scene.add(dirLight);
+                
+                // Luz direcional simulando iluminação solar para dar volume ao objeto
+                const sunLight = new THREE.DirectionalLight(0xffffff, 1.2);
+                sunLight.position.set(5, 8, 5);
+                scene.add(sunLight);
 
-                statusDiv.innerText = "Conectando ao modelo.glb...";
+                statusDiv.innerText = "Localizando arquivo modelo.glb...";
 
                 const loader = new THREE.GLTFLoader();
-                // Adicionamos timestamp único para estourar o cache do navegador móvel
-                const urlLimpa = './modelo.glb?cache=' + Date.now();
+                // O carimbo temporal (?t=) impede o celular de ler dados antigos e corrompidos em cache
+                const pathModelo = "./modelo.glb?t=" + Date.now();
 
-                loader.load(urlLimpa, 
+                loader.load(pathModelo, 
                     function (gltf) {
                         meuModelo = gltf.scene;
                         meuModelo.updateMatrixWorld();
 
+                        // Enquadramento automático no centro da tela baseado na geometria do arquivo
                         const box = new THREE.Box3().setFromObject(meuModelo);
                         const center = box.getCenter(new THREE.Vector3());
                         const size = box.getSize(new THREE.Vector3());
                         
                         meuModelo.position.sub(center);
 
-                        const group = new THREE.Group();
-                        group.add(meuModelo);
-                        scene.add(group);
-                        meuModelo = group;
+                        const pivotGroup = new THREE.Group();
+                        pivotGroup.add(meuModelo);
+                        scene.add(pivotGroup);
+                        meuModelo = pivotGroup;
 
-                        // Ajustador automático para o modelo super leve de 4kb
+                        // Se o objeto de 4kb for muito pequeno, este bloco aumenta sua escala automaticamente
                         const maxDim = Math.max(size.x, size.y, size.z);
-                        if (maxDim > 0 && maxDim < 0.5) {
-                            const scaleFactor = 1.2 / maxDim;
+                        if (maxDim > 0 && maxDim < 0.6) {
+                            const scaleFactor = 1.0 / maxDim;
                             meuModelo.scale.set(scaleFactor, scaleFactor, scaleFactor);
                         }
 
-                        statusDiv.innerText = "Modelo carregado! Ative o sensor.";
+                        statusDiv.innerText = "Modelo 3D carregado! Ative o sensor.";
                     },
                     function (xhr) {
-                        statusDiv.innerText = "Lendo arquivo 3D...";
+                        statusDiv.innerText = "Renderizando malha 3D...";
                     },
                     function (error) {
                         console.error(error);
-                        statusDiv.innerHTML = "❌ O arquivo modelo.glb não respondeu.<br>Confirme se ele está na raiz do repositório.";
+                        statusDiv.innerHTML = "❌ Falha ao abrir o arquivo 'modelo.glb'.<br>Verifique se ele foi enviado para a pasta principal.";
                     }
                 );
 
                 animate();
             } catch (err) {
+                statusDiv.innerText = "Erro ao processar placa de vídeo do celular.";
                 console.error(err);
-                statusDiv.innerText = "Falha crítica na renderização de tela.";
             }
         }
 
         function animate() {
             requestAnimationFrame(animate);
             if (meuModelo) {
+                // Suavização matemática por interpolação linear (lerp)
                 meuModelo.rotation.x += (targetRotationX - meuModelo.rotation.x) * lerpFactor;
                 meuModelo.rotation.y += (targetRotationY - meuModelo.rotation.y) * lerpFactor;
             }
-            renderer.render(scene, camera);
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
         }
 
         function handleOrientation(event) {
-            let x = event.beta; 
-            let y = event.gamma;
-            if (x > 90) x = 90;
-            if (x < -90) x = -90;
+            let x = event.beta;  // Inclinação para frente e para trás [-180, 180]
+            let y = event.gamma; // Inclinação lateral esquerda e direita [-90, 90]
+
+            if (x > 85) x = 85;
+            if (x < -85) x = -85;
+
+            // Transforma os eixos do giroscópio para a rotação nativa do elemento 3D
             targetRotationX = (x * Math.PI / 180);
             targetRotationY = (y * Math.PI / 180);
         }
 
         function ativarSensor() {
+            // Rotina para iOS 13+ (Dispositivos Apple)
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
                 DeviceOrientationEvent.requestPermission()
                     .then(permissionState => {
                         if (permissionState === 'granted') {
                             window.addEventListener('deviceorientation', handleOrientation);
                             btnSensor.style.display = 'none';
-                            statusDiv.innerText = "Sensor ativo! Mova o celular.";
+                            statusDiv.innerText = "Sensor ativo! Incline o celular.";
                         } else {
-                            statusDiv.innerText = "Permissão negada.";
+                            statusDiv.innerText = "Acesso ao giroscópio rejeitado.";
                         }
-                    }).catch(() => { statusDiv.innerText = "Erro ao validar sensor."; });
-            } else {
+                    }).catch(() => { statusDiv.innerText = "Erro ao configurar sensores."; });
+            } 
+            // Rotina para Android (Chrome/Firefox/Samsung Internet)
+            else {
                 window.addEventListener('deviceorientation', handleOrientation);
                 btnSensor.style.display = 'none';
-                statusDiv.innerText = "Sensor ativo! Mova o celular.";
+                statusDiv.innerText = "Sensor ativo! Incline o celular.";
             }
         }
 
+        // Garante o redimensionamento elástico se o celular mudar a orientação (paisagem/retrato)
         window.addEventListener('resize', () => {
-            if(camera && renderer) {
+            if (camera && renderer) {
                 camera.aspect = window.innerWidth / window.innerHeight;
                 camera.updateProjectionMatrix();
                 renderer.setSize(window.innerWidth, window.innerHeight);
             }
         });
 
-        btnSensor.addEventListener('click', ativarSensor);
-        window.addEventListener('load', init3D);
+        // Dispara o início logo após a montagem da árvore estrutural da página
+        window.addEventListener('DOMContentLoaded', init3D);
     </script>
 </body>
 </html>
