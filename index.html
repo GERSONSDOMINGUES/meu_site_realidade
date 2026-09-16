@@ -13,7 +13,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #1a1a1a;
+            background: radial-gradient(circle, #2c2c2c 0%, #121212 100%);
             font-family: sans-serif;
         }
         model-viewer {
@@ -22,33 +22,42 @@
         }
         #btn-permissao {
             position: absolute;
-            bottom: 20px;
+            bottom: 30px;
             left: 50%;
             transform: translateX(-50%);
-            padding: 12px 24px;
-            background: #007bff;
-            color: white;
+            padding: 15px 30px;
+            background: #ffffff;
+            color: #121212;
             border: none;
-            border-radius: 25px;
+            border-radius: 30px;
             font-size: 16px;
+            font-weight: bold;
             cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
             z-index: 10;
+        }
+        #btn-permissao:active {
+            transform: translateX(-50%) scale(0.95);
         }
     </style>
 </head>
 <body>
 
-    <!-- Botão necessário para iOS pedir permissão de usar os sensores -->
+    <!-- Botão necessário para o celular liberar os sensores de movimento -->
     <button id="btn-permissao">Ativar Movimento por Giroscópio</button>
 
-    <!-- Tag que carrega o seu arquivo 3D -->
+    <!-- Tag configurada com o seu arquivo modelo.glb -->
     <model-viewer id="modelo3d" 
-                  src="seu-modelo.glb" 
-                  alt="Meu modelo 3D" 
+                  src="modelo.glb" 
+                  alt="Meu modelo 3D Interativo" 
                   auto-rotate-delay="0"
                   camera-controls 
                   interaction-prompt="none"
-                  shadow-intensity="1">
+                  shadow-intensity="1.5"
+                  shadow-softness="1"
+                  environment-image="neutral"
+                  exposure="1">
     </model-viewer>
 
     <script>
@@ -57,7 +66,7 @@
 
         function iniciarGiroscopio() {
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                // Necessário para iOS 13+
+                // Solicita permissão no iOS (iPhone)
                 DeviceOrientationEvent.requestPermission()
                     .then(response => {
                         if (response === 'granted') {
@@ -67,21 +76,20 @@
                     })
                     .catch(console.error);
             } else {
-                // Android e navegadores mais antigos
+                // Ativa direto no Android e navegadores compatíveis
                 window.addEventListener('deviceorientation', lidarComMovimento);
                 botao.style.display = 'none';
             }
         }
 
         function lidarComMovimento(event) {
-            // Captura a rotação lateral (gamma) e frente/trás (beta) do celular
-            const rotaçaoX = event.gamma ? event.gamma : 0; 
-            const rotaçaoY = event.beta ? event.beta : 0;   
+            // Captura a inclinação lateral (gamma) e frente/trás (beta)
+            const rotacaoX = event.gamma ? event.gamma : 0; 
+            const 'rotacaoY' = event.beta ? event.beta : 0;   
 
-            // Mapeia e suaviza os valores para orbitar a câmera do modelo 3D
-            // Ajuste os valores divisores (ex: 2 e 1.5) para aumentar ou diminuir a sensibilidade
-            const grausX = rotaçaoX / 2;
-            const grausY = (rotaçaoY - 60) / 1.5; 
+            // Suaviza os valores para orbitar a câmera ao redor do objeto
+            const grausX = rotacaoX * 0.8;
+            const grausY = (rotacaoY - 60) * 0.8; 
 
             modelo.cameraOrbit = `${grausX}deg ${grausY}deg auto`;
         }
