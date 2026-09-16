@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Modelo 3D Interativo</title>
+    <!-- Usando a versão 3.4.0 que é a mais estável para arquivos locais e giroscópio -->
     <script type="module" src="https://googleapis.com"></script>
     <style>
         body, html {
@@ -42,9 +43,9 @@
 
     <button id="btn-permissao">Ativar Movimento por Giroscópio</button>
 
-    <!-- Adicionado bounds="tight" para forçar o enquadramento do objeto de 4kb -->
+    <!-- Usando caminhos relativos limpos e enquadramento forçado (bounds="tight") -->
     <model-viewer id="modelo3d" 
-                  src="modelo.glb" 
+                  src="./modelo.glb" 
                   alt="Meu modelo 3D Interativo" 
                   camera-controls 
                   touch-action="none"
@@ -58,6 +59,11 @@
     <script>
         const modelo = document.getElementById('modelo3d');
         const botao = document.getElementById('btn-permissao');
+
+        // Força o modelo a atualizar o caminho caso o GitHub dê cache no arquivo anterior
+        window.addEventListener('load', () => {
+            modelo.src = "./modelo.glb?v=" + new Date().getTime();
+        });
 
         function iniciarGiroscopio() {
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
