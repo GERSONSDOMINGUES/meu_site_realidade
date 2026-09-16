@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Modelo 3D Interativo</title>
-    <!-- Importa o componente de visualização 3D do Google -->
     <script type="module" src="https://googleapis.com"></script>
     <style>
         body, html {
@@ -34,28 +33,20 @@
             font-weight: bold;
             cursor: pointer;
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            transition: transform 0.2s;
             z-index: 10;
-        }
-        #btn-permissao:active {
-            transform: translateX(-50%) scale(0.95);
         }
     </style>
 </head>
 <body>
 
-    <!-- Botão necessário para o celular liberar os sensores de movimento -->
     <button id="btn-permissao">Ativar Movimento por Giroscópio</button>
 
-    <!-- Tag configurada com o seu arquivo modelo.glb -->
     <model-viewer id="modelo3d" 
                   src="modelo.glb" 
                   alt="Meu modelo 3D Interativo" 
-                  auto-rotate-delay="0"
                   camera-controls 
-                  interaction-prompt="none"
+                  touch-action="none"
                   shadow-intensity="1.5"
-                  shadow-softness="1"
                   environment-image="neutral"
                   exposure="1">
     </model-viewer>
@@ -66,7 +57,6 @@
 
         function iniciarGiroscopio() {
             if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
-                // Solicita permissão no iOS (iPhone)
                 DeviceOrientationEvent.requestPermission()
                     .then(response => {
                         if (response === 'granted') {
@@ -76,21 +66,16 @@
                     })
                     .catch(console.error);
             } else {
-                // Ativa direto no Android e navegadores compatíveis
                 window.addEventListener('deviceorientation', lidarComMovimento);
                 botao.style.display = 'none';
             }
         }
 
         function lidarComMovimento(event) {
-            // Captura a inclinação lateral (gamma) e frente/trás (beta)
-            const rotacaoX = event.gamma ? event.gamma : 0; 
-            const 'rotacaoY' = event.beta ? event.beta : 0;   
-
-            // Suaviza os valores para orbitar a câmera ao redor do objeto
-            const grausX = rotacaoX * 0.8;
-            const grausY = (rotacaoY - 60) * 0.8; 
-
+            const rX = event.gamma ? event.gamma : 0; 
+            const rY = event.beta ? event.beta : 0;   
+            const grausX = rX * 0.8;
+            const grausY = (rY - 60) * 0.8; 
             modelo.cameraOrbit = `${grausX}deg ${grausY}deg auto`;
         }
 
