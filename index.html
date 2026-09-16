@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Meu Modelo 3D Interativo</title>
-    <!-- Script oficial do Google para visualização 3D -->
     <script type="module" src="https://googleapis.com"></script>
     <style>
         body, html {
@@ -13,7 +12,7 @@
             width: 100%;
             height: 100%;
             overflow: hidden;
-            background-color: #f0f0f0; /* Fundo claro para teste */
+            background: radial-gradient(circle, #f0f0f0 0%, #dcdcdc 100%);
             font-family: sans-serif;
         }
         model-viewer {
@@ -27,7 +26,7 @@
             left: 50%;
             transform: translateX(-50%);
             padding: 15px 30px;
-            background: #007bff; /* Botão Azul visível */
+            background: #007bff;
             color: white;
             border: none;
             border-radius: 30px;
@@ -43,15 +42,17 @@
 
     <button id="btn-permissao">Ativar Movimento por Giroscópio</button>
 
-    <!-- Adicionado propriedades automáticas de foco e centralização -->
+    <!-- Adicionado bounds="tight" para forçar o enquadramento do objeto de 4kb -->
     <model-viewer id="modelo3d" 
                   src="modelo.glb" 
                   alt="Meu modelo 3D Interativo" 
                   camera-controls 
                   touch-action="none"
                   auto-rotate
-                  camera-target="0m 0m 0m"
-                  ar>
+                  bounds="tight"
+                  shadow-intensity="1"
+                  environment-image="neutral"
+                  exposure="1">
     </model-viewer>
 
     <script>
